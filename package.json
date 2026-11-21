@@ -1,0 +1,8 @@
+{
+  "name": "maquirent-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Telemetría MQTT para MaquiRent, Equipo 7",
+  "scripts": { "test": "node --test tests/*.test.cjs", "start": "node server.cjs" },
+  "engines": { "node": ">=20" }
+}

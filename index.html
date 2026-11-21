@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MaquiRent · Telemetría de maquinaria</title>
+<meta name="description" content="Monitoreo de temperatura, combustible y ubicación de maquinaria para MaquiRent.">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="assets/vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#1a1400" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 18h11"/><rect x="3" y="12" width="9" height="4" rx="1"/><path d="M6 12V8h4l2 4"/><path d="M12 9l5-4 4 6"/><path d="M21 11l-2 4h-3"/><circle cx="5" cy="19.5" r="1"/><circle cx="10" cy="19.5" r="1"/></svg>
+      </div>
+      <div>
+        <h1>MaquiRent <span>Control de maquinaria</span></h1>
+        <p id="sub">Esperando datos…</p>
+      </div>
+    </div>
+    <div class="top-right">
+      <button class="btn" id="btn-trials">Pruebas de estados</button>
+      <span class="pill" id="conn" role="status" data-lv="warn"><i></i><span>Conectando…</span></span>
+      <button class="btn icon" id="btn-cfg" aria-label="Configuración de conexión" title="Configuración de conexión">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <section class="trial-panel" id="trial-panel" hidden aria-label="Pruebas de estados">
+    <div><strong>Entradas controladas por MQTT</strong><p>Elige una condición. Se envía cada 2.5 segundos a un tópico separado y se muestra al recibirla del broker.</p></div>
+    <div class="trial-buttons">
+      <button class="btn" data-scenario="normal" disabled>Normal · 27 °C / 70 %</button>
+      <button class="btn" data-scenario="precaucion" disabled>Precaución · 33 °C / 30 %</button>
+      <button class="btn" data-scenario="alerta" disabled>Alerta · 38 °C / 10 %</button>
+    </div>
+    <p id="trial-status" role="status">Conectando al tópico de pruebas…</p>
+  </section>
+
+  <section class="equip" aria-label="Datos del equipo">
+    <div><span class="lbl">Equipo</span><b id="equipo">—</b></div>
+    <div><span class="lbl">Agencia</span><b id="agencia">—</b></div>
+    <div><span class="lbl">Última actualización</span><b id="updated">—</b></div>
+    <div><span class="lbl">Paquetes recibidos</span><b id="count">0</b></div>
+  </section>
+
+  <section class="condition" id="condition" data-lv="muted" aria-labelledby="condition-title">
+    <div><span class="eyebrow">Condición de temperatura y combustible</span><h2 id="condition-title">Esperando lecturas</h2><span class="badge" id="source-badge" data-lv="muted">Sensores · MQTT</span></div>
+    <div class="decision"><span class="eyebrow">Decisión del usuario</span><p id="decision-text">Conecta el gateway para recibir los datos del equipo.</p><small id="gps-note">La ubicación se confirma cuando el GPS obtiene señal.</small></div>
+  </section>
+  <div class="alerts" id="alerts" hidden></div>
+
+  <main class="grid">
+    <div class="cards">
+
+      <section class="card" id="card-temp" data-lv="muted">
+        <div class="card-head">
+          <div class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>
+            Temperatura del motor
+          </div>
+          <span class="badge" id="temp-badge" data-lv="muted">Sin datos</span>
+        </div>
+        <div class="big"><span id="temp-val">--</span><span class="unit">°C</span></div>
+        <div class="bar"><div class="bar-fill" id="temp-fill"></div><div class="bar-mark" style="left:58.33%"><span>35°</span></div></div>
+        <div class="scale"><span>0 °C</span><span>60 °C</span></div>
+        <svg class="spark" id="temp-spark" viewBox="0 0 300 56" preserveAspectRatio="none"></svg>
+        <div class="spark-label"><span>Últimos 2 minutos</span><span id="temp-range"></span></div>
+      </section>
+
+      <section class="card" id="card-diesel" data-lv="muted">
+        <div class="card-head">
+          <div class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18"/><path d="M2 22h14"/><path d="M15 9h2a2 2 0 0 1 2 2v6a1.5 1.5 0 0 0 3 0V8l-3-3"/><rect x="6" y="5" width="6" height="5" rx="1"/></svg>
+            Nivel de combustible
+          </div>
+          <span class="badge" id="diesel-badge" data-lv="muted">Sin datos</span>
+        </div>
+        <div class="gauge-row">
+          <svg class="gauge" viewBox="0 0 120 120" role="img" aria-label="Nivel de combustible">
+            <circle class="g-bg" cx="60" cy="60" r="52"/>
+            <circle class="g-val" id="diesel-arc" cx="60" cy="60" r="52"/>
+            <text x="60" y="66" class="g-num" id="diesel-val">--</text>
+            <text x="60" y="84" class="g-unit">% relativo</text>
+          </svg>
+          <dl class="kv">
+            <dt>Nivel</dt><dd id="diesel-state">—</dd>
+            <dt>Mínimo</dt><dd>15 %</dd>
+            <dt>Tendencia</dt><dd id="diesel-trend">—</dd>
+          </dl>
+        </div>
+        <svg class="spark" id="diesel-spark" viewBox="0 0 300 56" preserveAspectRatio="none"></svg>
+        <div class="spark-label"><span>Últimos 2 minutos</span><span id="diesel-range"></span></div>
+      </section>
+
+      <section class="card" id="card-gps">
+        <div class="card-head">
+          <div class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>
+            Ubicación GPS
+          </div>
+          <span class="badge" id="gps-badge" data-lv="muted">Sin datos</span>
+        </div>
+        <dl class="kv">
+          <dt>Latitud</dt><dd id="gps-lat">—</dd>
+          <dt>Longitud</dt><dd id="gps-lon">—</dd>
+          <dt>NMEA</dt><dd id="gps-raw" class="mono" style="font-size:12px">—</dd>
+          <dt>Posición</dt><dd id="gps-age">—</dd>
+        </dl>
+        <a id="gps-link" class="link" target="_blank" rel="noopener" hidden>Abrir en Google Maps</a>
+      </section>
+    </div>
+
+    <section class="card map-card">
+      <div id="map" aria-label="Mapa de ubicación del equipo"></div>
+      <div class="map-top">
+        <span class="chip" id="map-coords"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg><span>Sin posición</span></span>
+        <button class="chip" id="btn-follow" title="Centrar el mapa en la máquina">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg><span>Siguiendo</span>
+        </button>
+      </div>
+      <div class="map-msg" id="map-msg">
+        <span class="spin"></span>Esperando datos de la Pico…
+        <small>En espera de telemetría publicada en el tópico configurado</small>
+      </div>
+    </section>
+  </main>
+
+  <section class="bottom">
+    <div class="card">
+      <div class="card-head"><div class="card-title">Registro de eventos</div></div>
+      <p class="empty" id="log-empty">Sin eventos todavía.</p>
+      <ul class="log" id="log"></ul>
+    </div>
+    <div class="card">
+      <div class="card-head packet-head"><div class="card-title">Último paquete recibido</div><span class="badge mono" id="topic-badge" data-lv="muted"></span></div>
+      <pre class="raw mono" id="raw">—</pre>
+    </div>
+  </section>
+  <footer class="notes"><b>MaquiRent · Equipo 7</b><p>Umbrales del prototipo: precaución por encima de 30 °C o por debajo de 40 %; alerta por encima de 35 °C o por debajo de 15 %. El porcentaje representa el nivel relativo del sensor.</p></footer>
+</div>
+
+<dialog id="cfg">
+  <form method="dialog" id="cfg-form">
+    <h3>Conexión MQTT</h3><p id="cfg-error" class="form-error" role="alert" hidden></p>
+    <label>Broker (WebSocket)<input id="cfg-broker" spellcheck="false" required></label>
+    <label>Tópico<input id="cfg-topic" spellcheck="false" required maxlength="511"></label>
+    <p class="hint">El tópico debe ser el mismo que <span class="mono">TOPICO</span> en gateway_mqtt.py. El navegador usa el puerto WebSocket seguro del broker (8084), no el 1883.</p>
+    <div class="row">
+      <button type="button" class="btn" id="cfg-reset">Restablecer</button>
+      <button value="cancel" class="btn" formnovalidate>Cancelar</button>
+      <button value="save" class="btn primary">Guardar y reconectar</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="assets/vendor/leaflet/leaflet.js"></script>
+<script src="assets/vendor/mqtt.min.js"></script>
+<script src="assets/telemetry.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>
