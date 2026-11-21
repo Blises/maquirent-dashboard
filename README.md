@@ -6,6 +6,12 @@ Proyecto del Equipo 7. Unidad configurada: **EXCAVADORA-CAT-01**.
 
 ## Abrir el dashboard
 
+[Abrir MaquiRent en el navegador](https://maquirent-equipo7.satiny-puppy-2247.chatgpt.site).
+
+El sitio tiene acceso privado. Inicia sesión con la cuenta de ChatGPT con la que se publicó. El repositorio de GitHub también permanece privado.
+
+## Ejecutarlo en tu computadora
+
 Se necesita Node.js 20 o posterior. No hay dependencias que instalar para la interfaz.
 
 ```powershell
@@ -14,7 +20,7 @@ cd maquirent-dashboard
 npm start
 ```
 
-Abre **http://127.0.0.1:4177**. Para detenerlo, presiona `Ctrl+C` en la terminal. El código está en un repositorio privado; esta versión se ejecuta en tu computadora y no publica una página en Internet.
+Abre **http://127.0.0.1:4177**. Para detenerlo, presiona `Ctrl+C` en la terminal. Esta opción ejecuta el dashboard localmente.
 
 ## Conectar el prototipo
 
