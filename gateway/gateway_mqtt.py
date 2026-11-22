@@ -7,8 +7,8 @@ import uuid
 import serial
 import paho.mqtt.client as mqtt
 
-PUERTO_COM = 'COM3'
-BAUD_RATE = 115200
+PUERTO_SERIAL = 'COM3'
+BAUDRATE = 115200
 BROKER = 'broker.emqx.io'
 PUERTO_MQTT = 1883
 TOPICO = 'cucei/iot/d06/maquinaria/telemetria'
@@ -35,7 +35,8 @@ def publicar_linea(client, linea):
     if json_valido is None:
         return False
 
-    info = client.publish(TOPICO, json_valido, qos=0)
+    print('[RETRANSMITIENDO] ->', json_valido)
+    info = client.publish(TOPICO, json_valido, qos=0, retain=False)
     if info.rc != mqtt.MQTT_ERR_SUCCESS:
         print('[ENVIO NO CONFIRMADO] ' + mqtt.error_string(info.rc))
         return False
@@ -54,14 +55,15 @@ def publicar_linea(client, linea):
 
 
 def main():
-    global PUERTO_COM, BROKER, PUERTO_MQTT, TOPICO
+    global PUERTO_SERIAL, BROKER, PUERTO_MQTT, TOPICO
     parser = argparse.ArgumentParser(description='Puente Pico USB a MQTT para MaquiRent')
-    parser.add_argument('--port', default=PUERTO_COM, help='Puerto serial, por ejemplo COM3')
+    parser.add_argument('--port', default=PUERTO_SERIAL, help='Puerto serial, por ejemplo COM3')
     parser.add_argument('--broker', default=BROKER)
     parser.add_argument('--mqtt-port', type=int, default=PUERTO_MQTT)
     parser.add_argument('--topic', default=TOPICO, help='Mismo topico configurado en el dashboard')
+    parser.add_argument('--reset-pico', action='store_true', help='Reiniciar MicroPython por USB antes de escuchar')
     args = parser.parse_args()
-    PUERTO_COM, BROKER, PUERTO_MQTT, TOPICO = args.port, args.broker, args.mqtt_port, args.topic
+    PUERTO_SERIAL, BROKER, PUERTO_MQTT, TOPICO = args.port, args.broker, args.mqtt_port, args.topic
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id='MaquiRent_Gateway_' + uuid.uuid4().hex[:8])
     ser = None
     loop_iniciado = False
@@ -72,12 +74,13 @@ def main():
         loop_iniciado = True
 
         # Cerrar la consola de Thonny antes de abrir este mismo puerto.
-        ser = serial.Serial(PUERTO_COM, BAUD_RATE, timeout=1)
-        time.sleep(1)
-        ser.write(b'\x02')  # Ctrl+B: REPL normal.
-        time.sleep(0.5)
-        ser.write(b'\x04')  # Ctrl+D: reinicio suave y ejecucion de main.py.
-        print(f'Escuchando en {PUERTO_COM} y enviando a {TOPICO}...')
+        ser = serial.Serial(PUERTO_SERIAL, BAUDRATE, timeout=1)
+        time.sleep(2)
+        if args.reset_pico:
+            ser.write(b'\x02')  # Ctrl+B: REPL normal.
+            time.sleep(0.5)
+            ser.write(b'\x04')  # Ctrl+D: reinicio suave y ejecucion de main.py.
+        print(f'Escuchando en {PUERTO_SERIAL} y enviando a {TOPICO}...')
 
         while True:
             crudo = ser.readline()

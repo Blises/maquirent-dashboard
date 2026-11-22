@@ -32,7 +32,7 @@
       'Satélite': esri('World_Imagery'),
       'Oscuro': esri('Canvas/World_Dark_Gray_Base', { maxNativeZoom: 16 })
     };
-    base['Calles'].addTo(map);
+    base['Oscuro'].addTo(map);
     L.control.layers(base, null, { position: 'topright' }).addTo(map);
     trail = L.polyline([], { color: '#f5b301', weight: 3, opacity: .75 }).addTo(map);
     map.on('dragstart', () => setFollow(false));
@@ -120,7 +120,7 @@
   }
 
   function renderTemp(t, alert) {
-    const lv = t === null ? 'muted' : (alert || t > TEMP_MAX) ? 'danger' : t > TEMP_MAX - 5 ? 'warn' : 'ok';
+    const lv = t === null ? 'muted' : (alert || t > TEMP_MAX) ? 'danger' : t >= T.LIMITS.tempWarning ? 'warn' : 'ok';
     $('temp-val').textContent = t === null ? '--' : t.toFixed(2);
     setBadge('temp-badge', t === null ? 'Sin lectura' : lv === 'danger' ? 'Alta' : lv === 'warn' ? 'Elevada' : 'Normal', lv);
     const fill = $('temp-fill');
@@ -132,12 +132,12 @@
   }
 
   function renderDiesel(f, alert) {
-    const lv = f === null ? 'muted' : (alert || f < DIESEL_MIN) ? 'danger' : f < 40 ? 'warn' : 'ok';
-    $('diesel-val').textContent = f === null ? '--' : Math.round(f);
+    const lv = f === null ? 'muted' : (alert || f < DIESEL_MIN) ? 'danger' : f <= T.LIMITS.fuelWarning ? 'warn' : 'ok';
+    $('diesel-val').textContent = f === null ? '--' : f.toFixed(1);
     const arc = $('diesel-arc');
     arc.style.strokeDasharray = (f === null ? 0 : ARC * Math.max(0, Math.min(100, f)) / 100) + ' ' + CIRC;
     arc.dataset.lv = lv;
-    setBadge('diesel-badge', f === null ? 'Sin lectura' : lv === 'danger' ? 'Bajo' : lv === 'warn' ? 'Medio' : 'Bueno', lv);
+    setBadge('diesel-badge', f === null ? 'Sin lectura' : lv === 'danger' ? 'Crítico' : lv === 'warn' ? 'Reserva baja' : 'Adecuado', lv);
     $('card-diesel').dataset.lv = lv;
     $('diesel-state').textContent = f === null ? '—' : f.toFixed(1) + ' %';
     $('diesel-trend').textContent = trend(st.diesel);
@@ -218,6 +218,7 @@
   function handle(d) {
     const parsed = T.parse(d);
     if (!parsed) { log('warn', 'Paquete ignorado: equipo o estructura no válidos'); return; }
+    if (!current || current.state !== parsed.state) log(parsed.level, 'Estado operativo: ' + parsed.label);
     current = parsed;
     source = d.origen === 'entrada_controlada' ? 'Entradas controladas · MQTT' : d.origen === 'lectura_registrada' ? 'Lectura registrada · MQTT' : 'Sensores · MQTT';
     const now = Date.now();
@@ -327,12 +328,13 @@
     });
   }
 
-  const scenarios = { normal: [27, 70], precaucion: [33, 30], alerta: [38, 10] };
+  const scenarios = { normal: [27, 70], advertencia: [30, 25], critico: [38, 10] };
   function publishScenario() {
     if (!trials || !selectedScenario || !client || !client.connected || !subscribed) return;
     const [temp, fuel] = scenarios[selectedScenario];
     const data = { equipo_id: T.EQUIPO, agencia: 'Arrendadora Maquinaria Pesada', temp_motor: temp, nivel_diesel_pct: fuel,
       gps: { estado: 'SIN_SENAL_O_BUSCANDO', latitud: null, longitud: null },
+      estado_operativo: T.classify(temp, fuel),
       alerta_temp: temp > TEMP_MAX, alerta_combustible: fuel < DIESEL_MIN, origen: 'entrada_controlada' };
     client.publish(cfg.topic, JSON.stringify(data), { qos: 0, retain: false }, error => {
       if (error) { $('trial-status').textContent = 'No se pudo enviar el estado.'; log('danger', error.message); }

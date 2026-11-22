@@ -35,8 +35,8 @@
     <div><strong>Entradas controladas por MQTT</strong><p>Elige una condición. Se envía cada 2.5 segundos a un tópico separado y se muestra al recibirla del broker.</p></div>
     <div class="trial-buttons">
       <button class="btn" data-scenario="normal" disabled>Normal · 27 °C / 70 %</button>
-      <button class="btn" data-scenario="precaucion" disabled>Precaución · 33 °C / 30 %</button>
-      <button class="btn" data-scenario="alerta" disabled>Alerta · 38 °C / 10 %</button>
+      <button class="btn" data-scenario="advertencia" disabled>Advertencia · 30 °C / 25 %</button>
+      <button class="btn" data-scenario="critico" disabled>Crítico · 38 °C / 10 %</button>
     </div>
     <p id="trial-status" role="status">Conectando al tópico de pruebas…</p>
   </section>
@@ -141,7 +141,7 @@
       <pre class="raw mono" id="raw">—</pre>
     </div>
   </section>
-  <footer class="notes"><b>MaquiRent · Equipo 7</b><p>Umbrales del prototipo: precaución por encima de 30 °C o por debajo de 40 %; alerta por encima de 35 °C o por debajo de 15 %. El porcentaje representa el nivel relativo del sensor.</p></footer>
+  <footer class="notes"><b>MaquiRent · Equipo 7</b><p>Umbrales del prototipo: advertencia desde 30 °C o con nivel de 25 % o menos; condición crítica por encima de 35 °C o por debajo de 15 %. El porcentaje representa el nivel relativo del sensor, calibrado con una zona seca hasta 4500 y una referencia máxima de 45000 en el ADC.</p></footer>
 </div>
 
 <dialog id="cfg">

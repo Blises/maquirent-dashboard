@@ -8,7 +8,7 @@ Proyecto del Equipo 7. Unidad configurada: **EXCAVADORA-CAT-01**.
 
 [Abrir MaquiRent en el navegador](https://maquirent-equipo7.satiny-puppy-2247.chatgpt.site).
 
-El sitio tiene acceso privado. Inicia sesión con la cuenta de ChatGPT con la que se publicó. El repositorio de GitHub también permanece privado.
+El sitio tiene acceso privado. Inicia sesión con la cuenta de ChatGPT con la que se publicó. El repositorio de GitHub es público y se puede compartir sin iniciar sesión.
 
 ## Ejecutarlo en tu computadora
 
@@ -17,7 +17,7 @@ Se necesita Node.js 20 o posterior. No hay dependencias que instalar para la int
 ```powershell
 git clone https://github.com/Blises/maquirent-dashboard.git
 cd maquirent-dashboard
-npm start
+node server.cjs
 ```
 
 Abre **http://127.0.0.1:4177**. Para detenerlo, presiona `Ctrl+C` en la terminal. Esta opción ejecuta el dashboard localmente.
@@ -36,7 +36,10 @@ python -m venv .venv
 ```
 
 5. Abre el dashboard. La configuración inicial usa `wss://broker.emqx.io:8084/mqtt` y el tópico `cucei/iot/d06/maquinaria/telemetria`. El gateway publica en el mismo broker mediante TCP 1883.
+
 6. Al llegar un mensaje verás aumentar el contador, actualizarse las tarjetas y aparecer el JSON recibido. El GPS solo coloca un marcador si recibe una posición válida.
+
+El gateway no reinicia la Pico de forma automática. Si necesitas iniciar de nuevo `main.py` desde el puente, agrega `--reset-pico` al comando.
 
 La conexión se puede cambiar con el botón de configuración. Para usar otro tópico en el gateway:
 
@@ -55,7 +58,7 @@ Escribe exactamente ese tópico en el dashboard. La interfaz admite un broker WS
 | GPS NEO-6M | UART0 a 9600 baud; GP0 TX a RX del GPS, GP1 RX a TX del GPS | Trama RMC y estado de fijación |
 | Raspberry Pi Pico | USB serial hacia la computadora | JSON con las tres lecturas |
 
-Usa tierra común y señales compatibles con 3.3 V. La sonda DS18B20 requiere la resistencia de polarización apropiada para su módulo. El nivel usa `45000` como referencia del ADC: se debe ajustar a las mediciones del sensor antes de interpretar el porcentaje como un nivel calibrado. El sensor de agua se prueba con agua, sin introducirlo en combustible.
+Usa tierra común y señales compatibles con 3.3 V. La sonda DS18B20 requiere la resistencia de polarización apropiada para su módulo. El nivel usa una zona seca hasta `4500` y `45000` como referencia máxima del ADC. El cálculo es `((ADC - 4500) / (45000 - 4500)) × 100`, limitado a 0–100 %: se debe ajustar a las mediciones del sensor antes de interpretar el porcentaje como un nivel calibrado. El sensor de agua se prueba con agua, sin introducirlo en combustible.
 
 ```mermaid
 flowchart LR
@@ -74,17 +77,17 @@ La red de la computadora puede ser Wi-Fi o Ethernet. La Pico utilizada no necesi
 
 | Estado | Temperatura y nivel | Decisión del usuario |
 | --- | --- | --- |
-| Normal | Temperatura ≤30 °C y nivel ≥40 % | Continuar el seguimiento. |
-| Precaución | Temperatura >30 y ≤35 °C, o nivel ≥15 y <40 %, sin una alerta crítica | Vigilar la temperatura y planear una revisión o recarga. |
-| Alerta | Temperatura >35 °C, nivel <15 % o bandera de alerta del dispositivo | Pausar para revisar la temperatura o atender el nivel bajo. |
+| Normal | Temperatura <30 °C y nivel >25 %, sin alertas del equipo | Continuar el seguimiento. |
+| Advertencia | Temperatura ≥30 y ≤35 °C, o nivel ≥15 y ≤25 %, sin una condición crítica | Vigilar la temperatura y planear una revisión o recarga. |
+| Crítico | Temperatura >35 °C, nivel <15 %, bandera de alerta o estado CRITICO enviado por el dispositivo | Pausar para revisar la temperatura o atender el nivel bajo. |
 
 Estos valores son umbrales de trabajo del prototipo, no especificaciones de operación de una excavadora comercial. La condición térmica y de nivel se muestra por separado del estado del GPS. Una ubicación ausente no se sustituye por una coordenada inventada.
 
-Un dato nulo o fuera de rango aparece como lectura incompleta. Una bandera `false` no anula un valor crítico. Si pasan más de 10 segundos sin lecturas, se indica **Sin datos recientes**; si se pierde el enlace, **Sin conexión**. Las lecturas anteriores permanecen visibles como referencia. Los mensajes retenidos se ignoran para no mostrar un dato antiguo como actual.
+El campo `estado_operativo` admite `NORMAL`, `ADVERTENCIA` y `CRITICO`. Las lecturas y las banderas se verifican también en el dashboard: un estado NORMAL recibido no oculta valores críticos. Sin datos completos se indica `LECTURA_INCOMPLETA`; el firmware devuelve `null` cuando no detecta el DS18B20, en lugar de asignar 25 °C. Un dato nulo o fuera de rango aparece como lectura incompleta. Una bandera `false` no anula un valor crítico. Si pasan más de 10 segundos sin lecturas, se indica **Sin datos recientes**; si se pierde el enlace, **Sin conexión**. Las lecturas anteriores permanecen visibles como referencia. Los mensajes retenidos se ignoran para no mostrar un dato antiguo como actual.
 
 ## Comprobar los tres estados
 
-Pulsa **Pruebas de estados** y elige Normal, Precaución o Alerta. Cada opción publica entradas controladas cada 2.5 segundos en un tópico temporal separado. La pantalla cambia únicamente cuando recibe el mensaje a través del broker; no se actualiza directamente desde el botón.
+Pulsa **Pruebas de estados** y elige Normal, Advertencia o Crítico. Cada opción publica entradas controladas cada 2.5 segundos en un tópico temporal separado. La pantalla cambia únicamente cuando recibe el mensaje a través del broker; no se actualiza directamente desde el botón.
 
 Las pruebas conservan GPS sin fijación y se identifican como **Entradas controladas · MQTT**. Pulsa **Volver a sensores** para detenerlas y restaurar el tópico original. Esta función permite comprobar clasificación, transmisión y recepción sin mezclar esos mensajes con los de la Pico.
 
@@ -103,15 +106,16 @@ server.cjs                Servidor local de la interfaz
 ```
 
 ```powershell
-npm test
+node --test tests/telemetry.test.cjs
+python -m unittest discover -s tests -p "test_*.py"
 ```
 
-Las pruebas cubren los límites de los estados, banderas contradictorias, lecturas nulas, mensajes ajenos, coordenadas NMEA y configuración del broker. La verificación con sensores requiere conectar el prototipo y revisar que cada cambio físico llegue al dashboard.
+Las pruebas cubren los límites inclusivos de 30/35 °C y 15/25 %, el estado operativo recibido, banderas contradictorias, lecturas nulas, mensajes ajenos, coordenadas NMEA y configuración del broker. La verificación con sensores requiere conectar el prototipo y revisar que cada cambio físico llegue al dashboard.
 
 ## Alcance y limitaciones
 
 - El gateway necesita la computadora, el puerto USB disponible y acceso a Internet. Si se desconecta el USB, hay que corregir la conexión y reiniciar el gateway.
-- El broker de EMQX es público: que este repositorio sea privado no hace privados los mensajes MQTT. No deben enviarse ubicaciones o datos confidenciales a este broker.
+- El broker de EMQX es público: los mensajes MQTT no son privados. No deben enviarse ubicaciones o datos confidenciales a este broker.
 - QoS 0 no garantiza la entrega de cada mensaje. El dashboard no es un sistema de control automático de la maquinaria.
 - El historial y el recorrido se conservan solo en la sesión del navegador. No hay base de datos ni cuentas de usuario.
 - El GPS necesita recepción satelital; el mapa y el broker dependen de servicios externos.
@@ -119,4 +123,4 @@ Las pruebas cubren los límites de los estados, banderas contradictorias, lectur
 
 ## Procedencia
 
-La interfaz adapta el dashboard previo de MaquiRent y conserva el formato de datos de los archivos `main.py` y `gateway_mqtt.py` del proyecto. La integración incorpora MQTT.js, Leaflet y Eclipse Paho; sus versiones, enlaces y licencias se indican en [THIRD_PARTY.md](THIRD_PARTY.md).
+La interfaz integra la lógica de `maquinaria_web.html` y el formato actualizado de `main.py` y `gateway_mqtt.py` del equipo. Se corrigieron las plantillas JavaScript dañadas y la conversión NMEA del HTML recibido; se conservan el mapa, las gráficas, la reconexión y la configuración del dashboard. La integración incorpora MQTT.js, Leaflet y Eclipse Paho; sus versiones, enlaces y licencias se indican en [THIRD_PARTY.md](THIRD_PARTY.md).
