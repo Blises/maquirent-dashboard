@@ -6,9 +6,11 @@ Proyecto del Equipo 7. Unidad configurada: **EXCAVADORA-CAT-01**.
 
 ## Abrir el dashboard
 
-[Abrir MaquiRent en el navegador](https://maquirent-equipo7.satiny-puppy-2247.chatgpt.site).
+[Abrir MaquiRent en el navegador](https://blises.github.io/maquirent-dashboard/).
 
-El sitio tiene acceso privado. Inicia sesión con la cuenta de ChatGPT con la que se publicó. El repositorio de GitHub es público y se puede compartir sin iniciar sesión.
+El dashboard está publicado en GitHub Pages y se puede abrir sin iniciar sesión. Comparte el enlace con el equipo para consultar las lecturas y probar los estados. El repositorio de GitHub también es público.
+
+GitHub Pages publica la interfaz desde la raíz de la rama `main`. Los cambios enviados a esa rama actualizan el sitio automáticamente; `.nojekyll` permite servir los archivos estáticos directamente.
 
 ## Ejecutarlo en tu computadora
 
